@@ -1,0 +1,37 @@
+# fluentd-rbac.yml
+# If you have RBAC enabled
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: fluentd-service-account1
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: fluentd-service-account1
+subjects:
+- kind: ServiceAccount
+  name: fluentd-service-account1
+  namespace: default
+
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: fluentd-service-account1
+  namespace: default
+rules:
+  - apiGroups: ["*"]
+    resources:
+      - pods
+      - namespaces
+    verbs:
+      - get
+      - watch
+      - list
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: fluentd-service-account1
+  namespace: default
