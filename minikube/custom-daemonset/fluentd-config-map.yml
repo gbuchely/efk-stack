@@ -22,27 +22,79 @@ data:
     <source>
       @type tail
       path /var/log/containers/*.log
-      pos_file /var/log/fluentd-containers.log.pos
+      time_format %Y-%m-%dT%H:%M:%S.%NZ
       tag kubernetes.*
+      format json
       read_from_head true
-      <parse>
-        @type json
-        time_format %Y-%m-%dT%H:%M:%S.%NZ
-      </parse>      
     </source>
 
+    <source>
+      @type tail
+      path /var/log/containers/*.log
+      time_format %Y-%m-%dT%H:%M:%S.%NZ
+      tag kubernetesmet.*
+      format json
+      read_from_head true
+    </source>
+
+    #<filter **>
+    #  @type grep
+    #  <regexp>
+    #    key log
+    #    pattern ^[0-9]{2}-[A-Z][a-z]{2}-[0-9]{4} [0-9]{2}:[0-9]{2}:[0-9]{2},[0-9]{3} .+
+    #  </regexp>
+    #</filter>
+
+    <filter kubernetesmet.**>
+      @type grep
+      <regexp>
+        @type regexp
+        key log
+        pattern \W*\[CREW-METRIC\]\W*
+      </regexp>
+    </filter>
+
+    <filter kubernetesmet.**>
+      @type parser
+      key_name log
+      <parse>
+        @type regexp
+        expression .*\[CREW-METRIC\] - (?<metric>.*)
+        types metric:string
+      </parse>
+    </filter>
+
+    <filter kubernetesmet.**>
+      @type parser
+      key_name metric
+      reserve_data true
+      <parse>
+        @type json
+      </parse>
+    </filter>
+
     # we use kubernetes metadata plugin to add metadatas to the log
+    <filter kubernetes*.**>
+      @type kubernetes_metadata
+      merge_json_log true
+      preserve_json_log true
+    </filter>
+
     <filter kubernetes.**>
-        @type kubernetes_metadata
+      @type record_transformer
+      enable_ruby true
+      <record>
+            kubernetes_namespace_container_name ${record["kubernetes"]["namespace_name"]}/${record["kubernetes"]["container_name"]}/${record["kubernetes"]["pod_name"]}
+      </record>
     </filter>
 
     # Stdout
-    <match kubernetes.**>
-        @type stdout
-    </match>
+    #<match kubernetes.**>
+    #    @type stdout
+    #</match>
 
     # we send the logs to Elasticsearch
-    <match kubernetes.**>
+    <match kubernetes*.**>
         @type elasticsearch
         include_tag_key true
         host "#{ENV['FLUENT_ELASTICSEARCH_HOST']}"
